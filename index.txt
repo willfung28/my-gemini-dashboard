@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Semiconductor Sector Investment Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
+        }
+        .card {
+            background-color: #1e293b; /* Slate 800 */
+            border: 1px solid #334155; /* Slate 700 */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-title {
+            color: #cbd5e1; /* Slate 400 */
+            font-weight: 500;
+        }
+        .filter-btn, .metric-btn {
+            background-color: #334155;
+            color: #e2e8f0;
+            transition: all 0.3s ease;
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+        }
+        .filter-btn.active, .filter-btn:hover, .metric-btn.active, .metric-btn:hover {
+            background-color: #4f46e5;
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            flex-grow: 1;
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .player-tag { cursor: pointer; transition: all 0.2s ease; }
+        .player-tag:hover { background-color: #4f46e5; }
+        .player-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0;
+            background-color: #0f172a;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .player-details.expanded { max-height: 500px; padding: 0.75rem; }
+        
+        /* Smile Curve Enhancements */
+        #smile-curve-svg .curve-label-group { cursor: pointer; }
+        #smile-curve-svg .curve-path, #smile-curve-svg .curve-label-group { transition: opacity 0.4s ease; }
+        #smile-curve-svg .faded { opacity: 0.4; }
+        #smile-curve-svg .highlight-path {
+            stroke: url(#glow);
+            stroke-width: 4px;
+            fill: none;
+            filter: drop-shadow(0 0 5px #a78bfa);
+        }
+        #smile-curve-svg .highlight-node { fill: url(#glow); r: 8; }
+        
+        #smile-tooltip {
+            position: fixed;
+            background-color: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #4f46e5;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            max-width: 250px;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 100;
+            pointer-events: none; /* Important so it doesn't block mouse events on the SVG */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- Tooltip Element -->
+    <div id="smile-tooltip"></div>
+
+    <!-- Header -->
+    <header class="mb-8 text-center">
+        <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Semiconductor Sector Investment Dashboard</h1>
+        <p class="text-slate-400 text-lg">A strategic view of market dynamics, value capture, and geopolitical factors.</p>
+    </header>
+
+    <!-- Filter Section -->
+    <div id="filter-container" class="mb-8 flex flex-wrap justify-center gap-2">
+        <button class="filter-btn active" data-sector="Overall">Overall Report</button>
+        <button class="filter-btn" data-sector="EDA/IP">EDA / IP</button>
+        <button class="filter-btn" data-sector="Processors">Processors</button>
+        <button class="filter-btn" data-sector="Memory">Memory</button>
+        <button class="filter-btn" data-sector="Analog">Analog</button>
+        <button class="filter-btn" data-sector="Automotive">Automotive</button>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <main id="dashboard-grid" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Key Takeaways (Overall View Only) -->
+        <div id="takeaways-card" class="card lg:col-span-4 fade-in">
+             <h2 class="card-title mb-2">Key Report Takeaways</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm"><div class="p-3 rounded-lg bg-slate-900/50"><h3 class="font-semibold text-sky-400 mb-1">Robust Market Growth</h3><p class="text-slate-300">On track for a $1T market by 2030, propelled by massive demand in AI, IoT, 5G, and Automotive sectors.</p></div><div class="p-3 rounded-lg bg-slate-900/50"><h3 class="font-semibold text-emerald-400 mb-1">Innovation & IP Are King</h3><p class="text-slate-300">Deep R&D investment and patent filings are surging. US leads high-value EDA/IP, securing recurring revenue.</p></div><div class="p-3 rounded-lg bg-slate-900/50"><h3 class="font-semibold text-amber-400 mb-1">Evolving Competition</h3><p class="text-slate-300">Industry is shifting to specialization with "fabless" design firms and "pure-play" foundries in East Asia.</p></div><div class="p-3 rounded-lg bg-slate-900/50"><h3 class="font-semibold text-rose-400 mb-1">Strategic Imperatives</h3><p class="text-slate-300">A global talent shortage and geopolitical tensions are forcing a focus on workforce development and supply chain resilience.</p></div></div>
+        </div>
+
+        <!-- Market Size & Projections -->
+        <div class="card lg:col-span-2 fade-in">
+            <h2 class="card-title mb-1">Market Size & Projections</h2>
+            <p id="market-insight" class="text-sm text-slate-400 mb-4"></p>
+            <div class="chart-container">
+                <canvas id="marketSizeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- R&D, Patents & Talent -->
+        <div class="card lg:col-span-2 fade-in">
+            <h2 class="card-title mb-1">R&D, Patents & Talent</h2>
+            <p id="rd-insight" class="text-sm text-slate-400 mb-4"></p>
+            <div class="grid grid-cols-3 gap-4 text-center mt-2 mb-3">
+                <div>
+                    <p class="text-xs text-slate-400">R&D Spending</p>
+                    <p id="rd-spending" class="text-2xl font-bold text-emerald-400 mt-1"></p>
+                    <p class="text-xs text-slate-500">of Revenue</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Patent Filings</p>
+                    <p id="patent-filings" class="text-2xl font-bold text-sky-400 mt-1"></p>
+                     <p class="text-xs text-slate-500">in 5 years</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Talent Gap</p>
+                    <p id="talent-gap" class="text-2xl font-bold text-amber-400 mt-1"></p>
+                     <p class="text-xs text-slate-500">Critical Concern</p>
+                </div>
+            </div>
+            <div class="mt-2 flex-grow">
+                <h3 class="font-semibold text-slate-300 text-sm mb-2">Key Players in Focus (Click to Expand)</h3>
+                <div id="rd-players" class="flex flex-col gap-2 text-sm"></div>
+            </div>
+        </div>
+        
+        <!-- Value Chain Smile Curve -->
+        <div class="card lg:col-span-2 fade-in">
+            <h2 class="card-title mb-1">Value Chain "Smile Curve"</h2>
+            <p id="smile-curve-insight" class="text-sm text-slate-400 mb-4"></p>
+            <div id="smile-curve-container" class="flex-grow flex items-center justify-center p-2">
+                <svg id="smile-curve-svg" viewBox="0 0 450 250" class="w-full h-full">
+                    <defs>
+                        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+
+        <!-- This container holds one of two cards -->
+        <div id="dynamic-card-container" class="card lg:col-span-2 fade-in">
+             <!-- Financials or Sub-sector Snapshot will be injected here -->
+        </div>
+
+        <!-- Geopolitics & Industrial Policy (Overall View Only) -->
+        <div id="policy-card" class="card lg:col-span-4 fade-in">
+             <h2 class="card-title mb-2">Geopolitics & Industrial Policy</h2>
+             <p class="text-sm text-slate-400 mb-4">A global "subsidy race" and techno-nationalism are reshaping the supply chain, creating both opportunities and risks.</p>
+             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-2">
+                 <div class="p-3 rounded-lg bg-slate-900/50">
+                    <h3 class="font-semibold text-sky-400 mb-1">USA: CHIPS & Science Act</h3>
+                    <p class="text-slate-300">Aims to bolster domestic manufacturing, R&D, and workforce development to reduce reliance on East Asia.</p>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-900/50">
+                    <h3 class="font-semibold text-emerald-400 mb-1">EU: European Chips Act</h3>
+                    <p class="text-slate-300">Focuses on strengthening Europe's research, doubling production capacity, and securing supply chains.</p>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-900/50">
+                    <h3 class="font-semibold text-rose-400 mb-1">China: "Big Fund" & Self-Sufficiency</h3>
+                    <p class="text-slate-300">Massive state-led investment to build an indigenous ecosystem and reduce dependence on foreign technology.</p>
+                </div>
+             </div>
+        </div>
+
+        <!-- Supply Chain -->
+        <div class="card lg:col-span-4 fade-in">
+            <h2 class="card-title mb-1">Supply Chain: Resilience is the New Efficiency</h2>
+            <p id="supply-chain-insight" class="text-sm text-slate-400 mb-4"></p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                <div class="p-4 rounded-lg bg-slate-900/50">
+                    <h3 class="font-semibold text-slate-300">Upstream (Design & IP)</h3>
+                    <p id="supply-upstream" class="text-sm text-slate-400 mt-1"></p>
+                </div>
+                <div class="p-4 rounded-lg bg-slate-900/50">
+                    <h3 class="font-semibold text-slate-300">Midstream (Fabrication)</h3>
+                    <p id="supply-midstream" class="text-sm text-slate-400 mt-1"></p>
+                </div>
+                <div class="p-4 rounded-lg bg-slate-900/50">
+                    <h3 class="font-semibold text-slate-300">Downstream (OSAT)</h3>
+                    <p id="supply-downstream" class="text-sm text-slate-400 mt-1"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Investment Conclusion (Overall View Only) -->
+        <div id="conclusion-card" class="card lg:col-span-4 fade-in">
+            <h2 class="card-title mb-2">Investment Conclusion & Key Risks</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div>
+                    <h3 class="font-semibold text-emerald-400 mb-2">Investment Recommendation</h3>
+                    <ul class="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Focus on companies leading in AI-driven innovation (e.g., accelerators, custom silicon).</li>
+                        <li>Prioritize firms with strong, defensible IP portfolios in design and core tech.</li>
+                        <li>Favor adaptable companies that can navigate geopolitical shifts and diversify manufacturing.</li>
+                        <li>Target high-growth end markets like automotive, data centers, and advanced electronics.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-rose-400 mb-2">Risk Assessment</h3>
+                    <ul class="list-disc list-inside text-slate-300 space-y-1">
+                        <li><b>Geopolitical Fragmentation:</b> "Subsidy race" may lead to overcapacity and trade friction.</li>
+                        <li><b>Supply Chain Vulnerability:</b> Reliance on concentrated nodes and materials remains a key risk.</li>
+                        <li><b>High CAPEX:</b> Building advanced fabs requires immense capital and long payback periods.</li>
+                        <li><b>Talent Shortage:</b> Fierce competition for skilled engineers could constrain growth and innovation.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- HTML TEMPLATES FOR DYNAMIC CARD -->
+    <template id="financials-card-template">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
+            <div>
+                <h2 class="card-title">Financial Metrics by Sub-Sector</h2>
+                <p id="financials-insight" class="text-sm text-slate-400 mt-1"></p>
+            </div>
+            <div id="metric-filter-container" class="flex-shrink-0 mt-2 sm:mt-0 flex gap-1">
+                <button class="metric-btn text-xs active" data-metric="revenueGrowth">Growth %</button>
+                <button class="metric-btn text-xs" data-metric="evRevenue">EV/Rev</button>
+                <button class="metric-btn text-xs" data-metric="grossMargin">Margin %</button>
+            </div>
+        </div>
+        <div class="chart-container" style="height: 260px;">
+            <canvas id="financialsChart"></canvas>
+        </div>
+    </template>
+
+    <template id="subsector-card-template">
+        <div>
+            <h2 class="card-title">Sub-Sector Snapshot: <span id="snapshot-title" class="text-indigo-400 font-bold"></span></h2>
+            <div class="grid grid-cols-2 gap-4 text-center my-4">
+                <div>
+                    <p class="text-xs text-slate-400">Median Gross Margin</p>
+                    <p id="snapshot-margin" class="text-3xl font-bold text-emerald-400 mt-1"></p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Median EV/Revenue</p>
+                    <p id="snapshot-ev" class="text-3xl font-bold text-sky-400 mt-1"></p>
+                </div>
+            </div>
+            <div class="chart-container" style="height: 180px;">
+                <p class="text-sm text-slate-300 font-medium mb-2 text-center">Key Player Revenue Growth (2024 Proj.)</p>
+                <canvas id="subsectorGrowthChart"></canvas>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        const finalData = {"Overall":{"marketSize":{"labels":["2022","2023","2024 (P)","2025 (P)","2030 (T)"],"data":[574,527,611,697,1000]},"insights":{"market":"The industry is projected to become a trillion-dollar market by 2030, driven by AI.","rd":"Innovation is surging, but a global talent shortage remains a critical challenge.","supply":"Geopolitical tensions are forcing a shift from global efficiency to regional resilience, with a global \"subsidy race\" underway."},"rd":{"spending":"~8-10%","patents":"+59%","talent":"High","players":[{"name":"Nvidia","focus":"Dominant in AI/Cloud with GPU tech.","details":"High gross margin (76%) and strong pricing power. EV/EBITDA: 35.8x."},{"name":"Intel","focus":"Shifting to foundry services (IFS).","details":"Lower margins (40% gross) but massive scale. EV/EBITDA: 12.1x."},{"name":"TSMC","focus":"World's largest foundry.","details":"Dominates advanced nodes (>70% share). Significant geopolitical importance."},{"name":"ASML","focus":"Near-monopoly on EUV lithography.","details":"Critical enabler for the entire advanced chip industry. High-margin equipment."}]},"supplyChain":{"upstream":"Dominated by US firms (EDA/IP). High barriers to entry, strong pricing power. Crucial for AI development.","midstream":"Concentrated in East Asia (Taiwan, S. Korea). Massive CAPEX requirements create high barriers for advanced nodes.","downstream":"Traditionally lower value, but advanced packaging is increasing this segment's strategic importance."},"financials":{"revenueGrowth":{"labels":["Memory","Processors","Automotive","Analog","EDA/IP"],"data":[21.6,10.1,9.8,7.1,14.8],"title":"2024 Revenue Growth %"},"evRevenue":{"labels":["EDA/IP","Processors","Analog","Automotive","Memory"],"data":[15.5,5.5,4.8,3.8,2.4],"title":"Median EV / Revenue"},"grossMargin":{"labels":["EDA/IP","Processors","Analog","Memory","Automotive"],"data":[85,62.1,50.6,39.6,45.3],"title":"Median Gross Margin %"}},"smileCurve":{"highlight":"none","insight":"The highest value is captured at the ends of the chain: design and advanced packaging.","annotations":[{"stage":"Design","x":75,"y":85,"tooltip":"High Value: IP, R&D intensive, high margins. Dominated by US firms.","align":"middle"},{"stage":"Fabrication","x":225,"y":225,"tooltip":"High CAPEX: Value depends on node (<7nm is high value).","align":"middle"},{"stage":"Packaging & Test","x":375,"y":85,"tooltip":"Emerging Value: Advanced packaging (3D stacking) is crucial for performance.","align":"middle"}]}},"EDA/IP":{"marketSize":{"data":[12,14,16,18,30]},"insights":{"market":"This segment provides the \"digital blueprints\" for all chips in a high-margin, recurring revenue business model.","rd":"AI is being used to accelerate chip design itself, making EDA tools even more critical.","supply":"This segment IS the start of the upstream process, providing essential design tools and IP to fabless companies."},"rd":{"spending":"~25-30%","patents":"Very High","talent":"Very High","players":[{"name":"Synopsys","focus":"Leader in EDA software.","details":"Provides tools for the entire chip design workflow."},{"name":"Cadence","focus":"Key player in EDA and IP.","details":"Offers a comprehensive suite of tools for system design and verification."},{"name":"Arm","focus":"Dominant IP for mobile/edge CPUs.","details":"Licensing model provides huge ecosystem and recurring revenue."}]},"supplyChain":{"upstream":"This segment IS the start of the upstream process.","midstream":"N/A. These companies are not involved in manufacturing.","downstream":"N/A. Their role ends once the chip design is handed off."},"metrics":{"margin":"85.0%","ev":"15.5x"},"growth":{"labels":["Synopsys","Cadence","Arm"],"data":[14.5,13.8,16.1]},"smileCurve":{"highlight":"design","insight":"EDA/IP sits at the highest point of the value curve, providing the essential blueprints for the entire industry.","annotations":[{"stage":"Design","tooltip":"For EDA/IP, this is the entire business. Value is in recurring license fees and IP royalties."},{"stage":"Fabrication","tooltip":"EDA/IP companies are 'fabless' and do not participate in fabrication."},{"stage":"Packaging & Test","tooltip":"Designs from EDA tools influence packaging, but they are not directly involved in this stage."}]}},Processors:{"marketSize":{"data":[180,170,200,230,400]},"insights":{"market":"Processor demand is supercharged by AI, with GPUs and custom accelerators leading the way.","rd":"Focus is on energy efficiency and specialized architectures for AI workloads.","supply":"Processor firms are increasingly fabless, relying heavily on advanced foundry partners."},"rd":{"spending":"~15-20%","patents":"High","talent":"Very High","players":[{"name":"Nvidia","focus":"Dominant in AI/Cloud with GPU tech.","details":"High gross margin (76%) and strong pricing power. EV/EBITDA: 35.8x."},{"name":"AMD","focus":"Strong competitor in CPU/GPU markets.","details":"Gaining market share with competitive designs. EV/EBITDA: 41.4x."},{"name":"Intel","focus":"Shifting to foundry services (IFS).","details":"Lower margins (40% gross) but massive scale. EV/EBITDA: 12.1x."}]},"supplyChain":{"upstream":"Heavily reliant on EDA/IP from a few key vendors.","midstream":"Almost entirely dependent on advanced foundries like TSMC.","downstream":"Advanced packaging is a key performance differentiator."},"metrics":{"margin":"62.1%","ev":"5.5x"},"growth":{"labels":["NVIDIA","AMD","Intel"],"data":[12.7,6.7,4]},"smileCurve":{"highlight":"design","insight":"Processors capture immense value upstream in the complex design and IP phase.","annotations":[{"stage":"Design","tooltip":"This is where processor companies like Nvidia and AMD create their core value and competitive moat."},{"stage":"Fabrication","tooltip":"Most processor companies are fabless, relying on foundries like TSMC for manufacturing."},{"stage":"Packaging & Test","tooltip":"Crucial for performance. High-end processors use advanced 2.5D/3D packaging."}]}},Memory:{"marketSize":{"data":[130,110,150,170,250]},"insights":{"market":"After a cyclical downturn, memory is rebounding strongly, with high-bandwidth memory (HBM) for AI being a key driver.","rd":"R&D is focused on next-gen DRAM and NAND technologies.","supply":"This segment is dominated by a few large Integrated Device Manufacturers (IDMs)."},"rd":{"spending":"~10-12%","patents":"Medium","talent":"Medium","players":[{"name":"Samsung","focus":"Market leader in DRAM and NAND.","details":"Vertically integrated, massive scale and R&D budget."},{"name":"Micron","focus":"Key US-based memory manufacturer.","details":"Focused on cutting-edge DRAM and NAND."},{"name":"SK Hynix","focus":"Strong player in DRAM, leader in HBM.","details":"Pioneering High-Bandwidth Memory for AI."}]},"supplyChain":{"upstream":"Design is typically done in-house by the large IDMs.","midstream":"Fabrication is handled in proprietary fabs; scale is a huge moat.","downstream":"Assembly and testing are also mostly handled in-house."},"metrics":{"margin":"39.6%","ev":"2.4x"},"growth":{"labels":["Samsung","Micron","SK Hynix"],"data":[21.6,18.5,19.2]},"smileCurve":{"highlight":"fabrication","insight":"Memory is more commoditized, with value concentrated in scaled, capital-intensive fabrication.","annotations":[{"stage":"Design","tooltip":"Designs are less complex than logic chips and are typically created in-house by the IDMs."},{"stage":"Fabrication","tooltip":"This is the core of the memory business. Massive, expensive fabs create a high barrier to entry."},{"stage":"Packaging & Test","tooltip":"Standardized packaging, but HBM for AI requires highly advanced techniques."}]}},Analog:{"marketSize":{"data":[90,85,95,105,150]},"insights":{"market":"Analog chips are crucial for interfacing with the real world; growth is steady, driven by automotive and industrial IoT.","rd":"Innovation centers on power efficiency and signal precision.","supply":"Many analog companies operate their own specialized, often older, fabs."},"rd":{"spending":"~5-7%","patents":"Low","talent":"Medium","players":[{"name":"Texas Instruments","focus":"Broad portfolio for industrial/auto.","details":"Huge catalog of products, strong manufacturing base."},{"name":"Analog Devices","focus":"High-performance signal processing.","details":"Leader in data converters and signal conditioning."},{"name":"Infineon","focus":"Leader in automotive and power.","details":"Strong focus on power semiconductors for EVs."}]},"supplyChain":{"upstream":"Design expertise for specific applications is key.","midstream":"Less reliant on cutting-edge nodes; many operate their own fabs.","downstream":"Packaging is important for thermal performance and reliability."},"metrics":{"margin":"50.6%","ev":"4.8x"},"growth":{"labels":["TI","ADI","Infineon"],"data":[4.2,4,5.1]},"smileCurve":{"highlight":"fabrication","insight":"Analog value lies in specialized fabrication processes and deep customer integration.","annotations":[{"stage":"Design","tooltip":"Requires deep application-specific knowledge and close customer collaboration."},{"stage":"Fabrication","tooltip":"Many analog firms run their own specialized fabs on mature, reliable process nodes."},{"stage":"Packaging & Test","tooltip":"Packaging is key for protecting sensitive analog components and managing heat."}]}},Automotive:{"marketSize":{"data":[60,75,90,110,154]},"insights":{"market":"The strongest growing end-market, with demand tripling by 2030 due to EVs and autonomous driving.","rd":"Focus on reliability, safety standards (ISO 26262), and ADAS.","supply":"Long-term supply contracts are crucial; automakers are partnering directly with foundries."},"rd":{"spending":"~8-10%","patents":"Medium","talent":"High","players":[{"name":"Infineon","focus":"Major player in power & microcontrollers.","details":"Partnering with foundries for long-term MCU supply."},{"name":"NXP","focus":"Leader in secure connectivity and auto.","details":"Strong in automotive networking and radar."},{"name":"NVIDIA","focus":"Disruptor with high-performance SoCs.","details":"Providing the 'brains' for autonomous driving."}]},"supplyChain":{"upstream":"Design must meet stringent safety and reliability standards.","midstream":"Requires long-term supply guarantees from foundries.","downstream":"Rigorous testing and qualification are required."},"metrics":{"margin":"45.3%","ev":"3.8x"},"growth":{"labels":["Infineon","NXP","Renesas","NVIDIA"],"data":[11.1,9.8,9.5,15.2]},"smileCurve":{"highlight":"packaging & test","insight":"Value is shifting downstream towards integration, reliability, and safety-certified packaging.","annotations":[{"stage":"Design","tooltip":"Designs must adhere to strict automotive safety standards like ISO 26262."},{"stage":"Fabrication","tooltip":"Automakers are signing long-term deals directly with foundries to ensure supply."},{"stage":"Packaging & Test","tooltip":"Zero-defect tolerance is the goal. Rigorous testing and qualification are mandatory."}]}}};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let charts = {};
+            let currentFinancialMetric = 'revenueGrowth';
+
+            const filterContainer = document.getElementById('filter-container');
+            const playersContainer = document.getElementById('rd-players');
+            const dynamicCardContainer = document.getElementById('dynamic-card-container');
+            const tooltipElement = document.getElementById('smile-tooltip');
+
+            function createOrUpdateChart(id, type, labels, dataset, options) {
+                const canvas = document.getElementById(id);
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                if (charts[id]) charts[id].destroy();
+                charts[id] = new Chart(ctx, { type, data: { labels, datasets: [dataset] }, options });
+            }
+
+            function updateSmileCurve(sectorData) {
+                const svg = document.getElementById('smile-curve-svg');
+                if(!svg) return;
+                svg.innerHTML = ''; // Clear previous contents
+
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                defs.innerHTML = `<linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" /><stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" /></linearGradient>`;
+                svg.appendChild(defs);
+                
+                const basePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                basePath.setAttribute('d', "M 25 80 Q 225 280, 425 80");
+                basePath.setAttribute('stroke', '#475569');
+                basePath.setAttribute('stroke-width', '2');
+                basePath.setAttribute('fill', 'none');
+                basePath.classList.add('curve-path');
+                svg.appendChild(basePath);
+
+                const highlightData = {
+                    design: "M 25 80 Q 125 180, 225 225",
+                    fabrication: "M 125 180 Q 225 280, 325 180",
+                    "packaging & test": "M 225 225 Q 325 180, 425 80",
+                };
+
+                if (sectorData.smileCurve.highlight !== 'none') {
+                    const highlightPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    highlightPath.setAttribute('d', highlightData[sectorData.smileCurve.highlight]);
+                    highlightPath.classList.add('highlight-path');
+                    svg.appendChild(highlightPath);
+                }
+
+                const allNodes = [];
+                sectorData.smileCurve.annotations.forEach(ann => {
+                    const baseAnn = finalData.Overall.smileCurve.annotations.find(a => a.stage === ann.stage);
+                    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.classList.add('curve-label-group');
+                    allNodes.push(g);
+                    
+                    const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    node.setAttribute('cx', baseAnn.x);
+                    node.setAttribute('cy', baseAnn.y);
+                    node.setAttribute('r', '6');
+                    node.setAttribute('fill', '#334155');
+                    node.setAttribute('stroke', '#4f46e5');
+                    node.setAttribute('stroke-width', '2');
+                    
+                    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    label.setAttribute('x', baseAnn.x);
+                    label.setAttribute('y', baseAnn.y - 15);
+                    label.setAttribute('text-anchor', baseAnn.align);
+                    label.setAttribute('fill', '#cbd5e1');
+                    label.style.fontSize = '14px';
+                    label.classList.add('curve-label');
+                    label.textContent = baseAnn.stage;
+
+                    g.appendChild(label);
+                    g.appendChild(node);
+                    svg.appendChild(g);
+
+                    if (sectorData.smileCurve.highlight === baseAnn.stage.toLowerCase().split(' ')[0]) {
+                        g.classList.remove('faded');
+                        node.classList.add('highlight-node');
+                    } else {
+                        g.classList.add('faded');
+                    }
+                    
+                    g.addEventListener('mouseenter', (e) => {
+                        tooltipElement.textContent = ann.tooltip;
+                        tooltipElement.style.visibility = 'visible';
+                        tooltipElement.style.opacity = '1';
+                    });
+                    g.addEventListener('mousemove', (e) => {
+                        tooltipElement.style.left = `${e.clientX + 15}px`;
+                        tooltipElement.style.top = `${e.clientY + 15}px`;
+                    });
+                    g.addEventListener('mouseleave', () => {
+                        tooltipElement.style.visibility = 'hidden';
+                        tooltipElement.style.opacity = '0';
+                    });
+                });
+                
+                if(sectorData.smileCurve.highlight === 'none') {
+                    allNodes.forEach(n => n.classList.remove('faded'));
+                }
+
+                document.getElementById('smile-curve-insight').textContent = sectorData.smileCurve.insight;
+            }
+
+
+            function updateFinancialsCard() {
+                const data = finalData.Overall.financials[currentFinancialMetric];
+                const dataset = { label: data.title, data: data.data, backgroundColor: 'rgba(52, 211, 153, 0.7)', borderColor: '#34d399', borderWidth: 1 };
+                const options = { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.raw}${currentFinancialMetric.includes('Margin') || currentFinancialMetric.includes('Growth') ? '%' : 'x'}` } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } };
+                createOrUpdateChart('financialsChart', 'bar', data.labels, dataset, options);
+                document.getElementById('financials-insight').textContent = { revenueGrowth: 'Memory sector shows the strongest growth rebound, driven by AI demand.', evRevenue: 'EDA/IP and Processors command premium valuations due to high margins and IP.', grossMargin: 'The "fabless" EDA/IP and Processor sectors are vastly more profitable than manufacturing.' }[currentFinancialMetric];
+            }
+            
+            function updateSubsectorCard(sectorData, sectorName) {
+                document.getElementById('snapshot-title').textContent = sectorName;
+                document.getElementById('snapshot-margin').textContent = sectorData.metrics.margin;
+                document.getElementById('snapshot-ev').textContent = sectorData.metrics.ev;
+                
+                const dataset = { label: 'Growth %', data: sectorData.growth.data, backgroundColor: 'rgba(79, 70, 229, 0.7)', borderColor: '#a78bfa', borderWidth: 1 };
+                const options = { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8', autoSkip: false } } } };
+                createOrUpdateChart('subsectorGrowthChart', 'bar', sectorData.growth.labels, dataset, options);
+            }
+
+            function updatePlayers(sectorData) {
+                playersContainer.innerHTML = '';
+                sectorData.rd.players.forEach((player) => {
+                    const playerWrapper = document.createElement('div');
+                    const playerTag = document.createElement('div');
+                    playerTag.className = 'player-tag bg-slate-700 text-slate-300 px-3 py-2 rounded flex justify-between items-center';
+                    playerTag.innerHTML = `<span><span class="font-bold text-white">${player.name}</span> - ${player.focus}</span><span class="transform transition-transform duration-300 text-slate-400">&#9662;</span>`;
+                    const playerDetails = document.createElement('div');
+                    playerDetails.className = 'player-details px-4';
+                    playerDetails.innerHTML = `<p class="text-slate-400">${player.details}</p>`;
+                    playerWrapper.appendChild(playerTag);
+                    playerWrapper.appendChild(playerDetails);
+                    playersContainer.appendChild(playerWrapper);
+                });
+            }
+
+            function updateRDCards(sectorData) {
+                document.getElementById('rd-spending').textContent = sectorData.rd.spending;
+                document.getElementById('patent-filings').textContent = sectorData.rd.patents;
+                document.getElementById('talent-gap').textContent = sectorData.rd.talent;
+                updatePlayers(sectorData);
+            }
+
+            function updateMarketSizeChart(sectorData) {
+                const dataset = { label: 'Market Size ($B)', data: sectorData.marketSize.data, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: true, tension: 0.4, pointBackgroundColor: '#4f46e5' };
+                const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } };
+                createOrUpdateChart('marketSizeChart', 'line', finalData.Overall.marketSize.labels, dataset, options);
+            }
+            
+            function updateSupplyChain(sectorData) {
+                document.getElementById('supply-upstream').textContent = sectorData.supplyChain.upstream;
+                document.getElementById('supply-midstream').textContent = sectorData.supplyChain.midstream;
+                document.getElementById('supply-downstream').textContent = sectorData.supplyChain.downstream;
+            }
+
+            function updateAllCards(sector = 'Overall') {
+                const data = finalData[sector];
+                
+                ['takeaways-card', 'conclusion-card', 'policy-card'].forEach(id => {
+                     document.getElementById(id).style.display = sector === 'Overall' ? 'flex' : 'none';
+                });
+                
+                if (sector === 'Overall') {
+                    const template = document.getElementById('financials-card-template');
+                    dynamicCardContainer.innerHTML = template.innerHTML;
+                    updateFinancialsCard();
+                     // Re-attach listener for the new buttons
+                    dynamicCardContainer.querySelector('#metric-filter-container').addEventListener('click', (e) => {
+                        if (e.target.classList.contains('metric-btn')) {
+                            dynamicCardContainer.querySelector('.active').classList.remove('active');
+                            e.target.classList.add('active');
+                            currentFinancialMetric = e.target.dataset.metric;
+                            updateFinancialsCard();
+                        }
+                    });
+                } else {
+                    const template = document.getElementById('subsector-card-template');
+                    dynamicCardContainer.innerHTML = template.innerHTML;
+                    updateSubsectorCard(data, sector);
+                }
+
+                updateMarketSizeChart(data);
+                updateRDCards(data);
+                updateSmileCurve(data);
+                updateSupplyChain(data);
+                
+                document.getElementById('market-insight').textContent = data.insights.market;
+                document.getElementById('rd-insight').textContent = data.insights.rd;
+                document.getElementById('supply-chain-insight').textContent = data.insights.supply;
+
+                document.querySelectorAll('.card').forEach(card => {
+                    card.classList.remove('fade-in');
+                    void card.offsetWidth;
+                    card.classList.add('fade-in');
+                });
+            }
+            
+            filterContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-btn')) {
+                    filterContainer.querySelector('.active').classList.remove('active');
+                    e.target.classList.add('active');
+                    updateAllCards(e.target.dataset.sector);
+                }
+            });
+
+            playersContainer.addEventListener('click', (e) => {
+                const playerTag = e.target.closest('.player-tag');
+                if (playerTag) {
+                    const details = playerTag.nextElementSibling;
+                    const arrow = playerTag.querySelector('span:last-child');
+                    details.classList.toggle('expanded');
+                    arrow.style.transform = details.classList.contains('expanded') ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
+            });
+            
+            updateAllCards('Overall');
+        });
+    </script>
+</body>
+</html>
+
